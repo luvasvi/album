@@ -1,13 +1,21 @@
-// src/app/api/pacotes/abrir/route.ts
-
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-const USER_ID = "demo-user";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../../auth/[...nextauth]/route"; // Importação direta da sua rota de auth
 
 export async function POST() {
   try {
-    // Busca um pacote fechado do usuário
+    // 1. Busca a sessão do usuário logado no Google
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
+
+    // 2. O USER_ID agora é dinâmico (o e-mail do usuário autenticado)
+    const USER_ID = session.user.email;
+
+    // Busca um pacote fechado do usuário real
     const pacote = await prisma.pacote.findFirst({
       where: {
         userId: USER_ID,
@@ -34,7 +42,6 @@ export async function POST() {
 
     // Pools separadas
     const raras = todasFigurinhas.filter((f) => f.isRara);
-
     const comuns = todasFigurinhas.filter((f) => !f.isRara);
 
     // Sorteio
@@ -42,7 +49,6 @@ export async function POST() {
 
     for (let i = 0; i < 5; i++) {
       const ehRara = Math.random() < 0.15;
-
       let pool = ehRara ? raras : comuns;
 
       // fallback
@@ -51,17 +57,15 @@ export async function POST() {
       }
 
       const fig = pool[Math.floor(Math.random() * pool.length)];
-
       sorteadas.push(fig);
     }
 
-    // Atualiza coleção + pacote
+    // Atualiza coleção + pacote usando o USER_ID real
     await prisma.$transaction([
       prisma.pacote.update({
         where: {
           id: pacote.id,
         },
-
         data: {
           aberto: true,
         },
@@ -75,13 +79,11 @@ export async function POST() {
               figurinhaId: fig.id,
             },
           },
-
           update: {
             quantidade: {
               increment: 1,
             },
           },
-
           create: {
             userId: USER_ID,
             figurinhaId: fig.id,
@@ -98,12 +100,8 @@ export async function POST() {
     console.error("[PACOTE_ABRIR]", error);
 
     return NextResponse.json(
-      {
-        error: "Erro ao abrir pacote",
-      },
-      {
-        status: 500,
-      },
+      { error: "Erro ao abrir pacote" },
+      { status: 500 },
     );
   }
 }

@@ -1,13 +1,19 @@
-// src/app/api/album/route.ts
-
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../auth/[...nextauth]/route"; 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-const USER_ID = "demo-user";
-
 export async function GET() {
   try {
-    // Busca tudo em paralelo
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
+
+    const USER_ID = session.user.email;
+
+    // Busca tudo em paralelo (sua lógica perfeita)
     const [figurinhas, colecao, totalPacotes] = await Promise.all([
       prisma.figurinha.findMany({
         orderBy: {
@@ -47,7 +53,6 @@ export async function GET() {
         emoji: fig.emoji,
         isRara: fig.isRara,
         possui: quantidade > 0,
-
         quantidade,
       };
     });
@@ -62,12 +67,8 @@ export async function GET() {
     console.error("[ALBUM_GET]", error);
 
     return NextResponse.json(
-      {
-        error: "Erro ao carregar álbum",
-      },
-      {
-        status: 500,
-      },
+      { error: "Erro ao carregar álbum" },
+      { status: 500 },
     );
   }
 }
