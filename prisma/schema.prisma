@@ -1,0 +1,38 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model Figurinha {
+  id       String  @id @default(auto()) @map("_id") @db.ObjectId
+  numero   Int     @unique
+  nome     String
+  cargo    String
+  area     String
+  emoji    String
+  isRara   Boolean @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Colecao {
+  id          String @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String
+  figurinhaId String @db.ObjectId
+  quantidade  Int    @default(1)
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, figurinhaId])
+}
+
+model Pacote {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String
+  aberto    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
