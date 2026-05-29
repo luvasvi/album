@@ -6,6 +6,7 @@ export interface Figurinha {
   cargo: string;
   area: string;
   emoji: string;
+  imagem?: string; // 👈 Adicionado aqui como opcional (?) para não quebrar se alguma figurinha antiga não tiver foto
   isRara: boolean;
 }
 
@@ -21,10 +22,17 @@ export interface AlbumData {
   totalFigurinhas: number;
 }
 
-export type Area =
-  | "Todas"
-  | "Tech"
-  | "RH"
-  | "Marketing"
-  | "Financeiro"
+export type Area = 
+  | "Todas" 
+  | "SISTEMAS" 
+  | "OPERAÇÃO BRADESCO" 
+  | "SERVIÇOS" 
+  | "COMERCIAL" 
+  | "GENTE & GESTÃO" 
+  | "DELIVERY" 
+  | "PROJETOS" 
+  | "SUPORTE" 
+  | "ADM/FINANCEIRO" 
+  | "FINANCEIRO/FATURAMENTO" 
+  | "DIRETORIA" 
   | "Raras";

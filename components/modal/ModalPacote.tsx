@@ -1,40 +1,54 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-import { Figurinha } from "@/types/types";
-
+import { Figurinha, FigurinhaComPosse } from "@/types/types";
+import CardFigurinha from "@/components/cards/CardFigurinha";
 import styles from "./ModalPacote.module.css";
 
 interface Props {
   figurinhas: Figurinha[];
-
   onFechar: () => void;
 }
 
 export default function ModalPacote({ figurinhas, onFechar }: Props) {
   const [reveladas, setReveladas] = useState<number[]>([]);
-
   const [todasReveladas, setTodasReveladas] = useState(false);
 
+  // Detecta se é a abertura em lote (mais de 5 figurinhas acumuladas)
+  const isAberturaEmLote = figurinhas.length > 5;
+
   useEffect(() => {
-    figurinhas.forEach((_, i) => {
-      setTimeout(
-        () => {
-          setReveladas((prev) => {
-            const next = [...prev, i];
-
-            if (next.length === figurinhas.length) {
-              setTodasReveladas(true);
-            }
-
-            return next;
-          });
-        },
-        i * 400 + 300,
-      );
-    });
-  }, [figurinhas]);
+    if (isAberturaEmLote) {
+      // ⚡ COMPORTAMENTO EM LOTE: Revela tudo em blocos rápidos de 5 em 5 para não demorar uma eternidade
+      figurinhas.forEach((_, i) => {
+        const bloco = Math.floor(i / 5);
+        setTimeout(
+          () => {
+            setReveladas((prev) => {
+              const next = [...prev, i];
+              if (next.length === figurinhas.length) setTodasReveladas(true);
+              return next;
+            });
+          },
+          bloco * 200 + 200,
+        ); // Intervalo bem curto entre os blocos
+      });
+    } else {
+      // 🕒 COMPORTAMENTO PADRÃO: Revelação clássica sequencial de 1 em 1
+      figurinhas.forEach((_, i) => {
+        setTimeout(
+          () => {
+            setReveladas((prev) => {
+              const next = [...prev, i];
+              if (next.length === figurinhas.length) setTodasReveladas(true);
+              return next;
+            });
+          },
+          i * 450 + 400,
+        );
+      });
+    }
+  }, [figurinhas, isAberturaEmLote]);
 
   return (
     <div
@@ -45,65 +59,46 @@ export default function ModalPacote({ figurinhas, onFechar }: Props) {
         }
       }}
     >
-      <p className={styles.titulo}>🔥 PACOTE ABERTO!</p>
+      <p className={styles.titulo}>
+        {isAberturaEmLote
+          ? "⚡ TODOS OS PACOTES ABERTOS!"
+          : "🔥 PACOTE ABERTO!"}
+      </p>
 
+      {/* Grid controlado que se ajusta ao volume de cartas */}
       <div className={styles.grid}>
         {figurinhas.map((fig, i) => {
           const revelada = reveladas.includes(i);
 
+          const figurinhaAdaptada: FigurinhaComPosse = {
+            ...fig,
+            possui: true,
+            quantidade: 1,
+          };
+
           return (
             <div
               key={i}
-              className={styles.card}
-              style={{
-                transform: revelada
-                  ? "scale(1) rotateY(0deg)"
-                  : "scale(0.8) rotateY(90deg)",
-
-                opacity: revelada ? 1 : 0,
-
-                background: fig.isRara
-                  ? "linear-gradient(135deg, #fbbf24, #f59e0b)"
-                  : "linear-gradient(180deg, #1e293b, #0f172a)",
-
-                border: fig.isRara ? "2px solid #facc15" : "2px solid #334155",
-
-                boxShadow: fig.isRara
-                  ? "0 0 20px rgba(251,191,36,0.5)"
-                  : "0 4px 12px rgba(0,0,0,0.5)",
-              }}
+              className={`${styles.card} ${revelada ? styles.cardRevelado : ""} ${
+                isAberturaEmLote
+                  ? styles.loteAnimacao
+                  : styles.sequencialAnimacao
+              }`}
             >
-              <span className={styles.emoji}>{fig.emoji}</span>
-
-              <span
-                className={styles.nome}
-                style={{
-                  color: fig.isRara ? "#7c2d12" : "#ffffff",
-                }}
-              >
-                {fig.nome}
-              </span>
-
-              {fig.isRara && (
-                <span
-                  className={styles.rara}
-                  style={{
-                    color: "#7c2d12",
-                  }}
-                >
-                  ★ RARA
-                </span>
-              )}
+              <CardFigurinha fig={figurinhaAdaptada} />
             </div>
           );
         })}
       </div>
 
-      {todasReveladas && (
-        <button onClick={onFechar} className={styles.botao}>
-          FECHAR PACOTE
-        </button>
-      )}
+      {/* Espaço reservado do botão para evitar pulos de layout */}
+      <div style={{ minHeight: "80px", display: "flex", alignItems: "center" }}>
+        {todasReveladas && (
+          <button onClick={onFechar} className={styles.botao}>
+            COLECIONAR FIGURINHAS
+          </button>
+        )}
+      </div>
     </div>
   );
 }

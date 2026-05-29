@@ -1,21 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../auth/[...nextauth]/route"; // Importação direta da sua rota de auth
+import { authOptions } from "../../auth/[...nextauth]/route"; 
 
 export async function POST() {
   try {
-    // 1. Busca a sessão do usuário logado no Google
+
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
-    // 2. O USER_ID agora é dinâmico (o e-mail do usuário autenticado)
     const USER_ID = session.user.email;
 
-    // Busca um pacote fechado do usuário real
     const pacote = await prisma.pacote.findFirst({
       where: {
         userId: USER_ID,
@@ -30,7 +28,7 @@ export async function POST() {
       );
     }
 
-    // Busca todas as figurinhas
+
     const todasFigurinhas = await prisma.figurinha.findMany();
 
     if (todasFigurinhas.length === 0) {
@@ -40,18 +38,15 @@ export async function POST() {
       );
     }
 
-    // Pools separadas
     const raras = todasFigurinhas.filter((f) => f.isRara);
     const comuns = todasFigurinhas.filter((f) => !f.isRara);
 
-    // Sorteio
     const sorteadas = [];
 
     for (let i = 0; i < 5; i++) {
       const ehRara = Math.random() < 0.15;
       let pool = ehRara ? raras : comuns;
 
-      // fallback
       if (pool.length === 0) {
         pool = todasFigurinhas;
       }
@@ -60,7 +55,6 @@ export async function POST() {
       sorteadas.push(fig);
     }
 
-    // Atualiza coleção + pacote usando o USER_ID real
     await prisma.$transaction([
       prisma.pacote.update({
         where: {

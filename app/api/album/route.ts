@@ -1,5 +1,5 @@
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../auth/[...nextauth]/route"; 
+import { authOptions } from "../auth/[...nextauth]/route";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -52,6 +52,7 @@ export async function GET() {
         area: fig.area,
         emoji: fig.emoji,
         isRara: fig.isRara,
+        imagem: fig.imagem, 
         possui: quantidade > 0,
         quantidade,
       };
