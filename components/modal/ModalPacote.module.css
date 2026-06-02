@@ -6,10 +6,13 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 40px 24px;
+
+  justify-content: flex-start;
+
+  padding: 60px 24px 40px;
   backdrop-filter: blur(12px);
-  overflow-y: auto; /* Permite scroll se abrir muitas cartas ao mesmo tempo */
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .titulo {
@@ -21,18 +24,29 @@
   margin-top: 0;
   text-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
   text-align: center;
+  flex-shrink: 0;
 }
 
 .grid {
   display: flex;
+  flex-wrap: wrap; /* Faz quebrar a linha se abrir 25 cartas */
   gap: 20px;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: center;
   max-width: 1200px;
   width: 100%;
   margin-bottom: 24px;
   padding: 10px;
+
+  /* ⚡ O SEGREDO DO ALINHAMENTO: Centraliza as cartas no meio, não importa se são 5 ou 25 */
+  justify-content: center;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
+    gap: 12px;
+  }
 }
 
 /* Base unificada do card para animação */
@@ -41,6 +55,14 @@
   flex-shrink: 0;
   opacity: 0;
   pointer-events: none;
+  box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+  .card {
+    /* 📱 No mobile o card se adapta para preencher o slot menor de 105px */
+    width: 100%;
+  }
 }
 
 .cardRevelado {
@@ -48,7 +70,7 @@
   pointer-events: auto;
 }
 
-/* 🕒 Animação 3D suave para abertura individual (o seu clássico de girar sem deformar) */
+/* 🕒 Animação 3D suave para abertura individual */
 .sequencialAnimacao {
   transform: rotateY(90deg);
   transition:
@@ -60,7 +82,7 @@
   transform: rotateY(0deg);
 }
 
-/* ⚡ Animação de Fade + Pulo rápido para abertura de mutas fotos juntas */
+/* ⚡ Animação de Fade + Pulo rápido para lote */
 .loteAnimacao {
   transform: scale(0.7) translateY(20px);
   transition:
@@ -87,6 +109,7 @@
   transition:
     transform 0.1s ease,
     filter 0.1s ease;
+  margin-top: 10px;
 }
 
 .botao:hover {

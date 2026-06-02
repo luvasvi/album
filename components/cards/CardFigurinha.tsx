@@ -32,6 +32,16 @@ export default function CardFigurinha({ fig }: { fig: FigurinhaComPosse }) {
 
   const temFoto = !!(fig.imagem || (fig as any).image || (fig as any).foto);
 
+  // Objeto de estilo genérico para blindar textos longos (Nome e Cargo)
+  const estiloTextoAntiEstouro: React.CSSProperties = {
+    width: "100%",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    padding: "0 4px",
+    boxSizing: "border-box",
+  };
+
   return (
     <div
       className={styles.card}
@@ -52,7 +62,7 @@ export default function CardFigurinha({ fig }: { fig: FigurinhaComPosse }) {
           background: fig.isRara
             ? "linear-gradient(135deg, #c8920a, #f5d000, #c8920a)"
             : cor.topo,
-          zIndex: 2, // Garante que fica acima da foto expandida
+          zIndex: 2,
         }}
       >
         <span className={styles.numero}>
@@ -61,7 +71,7 @@ export default function CardFigurinha({ fig }: { fig: FigurinhaComPosse }) {
         <span className={styles.area}>{fig.area}</span>
       </div>
 
-      {/* CORPO DINÂMICO (Estilo Álbum da Panini) */}
+      {/* CORPO DINÂMICO */}
       <div
         className={styles.corpo}
         style={{
@@ -70,7 +80,7 @@ export default function CardFigurinha({ fig }: { fig: FigurinhaComPosse }) {
           flex: 1,
           display: "flex",
           flexDirection: "column",
-          justifyContent: temFoto ? "flex-end" : "center", // Se tem foto, empurra os textos pro rodapé
+          justifyContent: temFoto ? "flex-end" : "center",
           alignItems: "center",
           overflow: "hidden",
           padding: temFoto ? "0" : "12px 8px",
@@ -78,7 +88,6 @@ export default function CardFigurinha({ fig }: { fig: FigurinhaComPosse }) {
       >
         {temFoto ? (
           <>
-            {/* Foto expandida ocupando o card inteiro de ponta a ponta */}
             <img
               src={fig.imagem || (fig as any).image || (fig as any).foto}
               alt={fig.nome}
@@ -92,7 +101,6 @@ export default function CardFigurinha({ fig }: { fig: FigurinhaComPosse }) {
               }}
             />
 
-            {/* Gradiente escuro na base da foto para dar contraste ao texto branco */}
             <div
               style={{
                 position: "absolute",
@@ -112,17 +120,21 @@ export default function CardFigurinha({ fig }: { fig: FigurinhaComPosse }) {
               style={{
                 zIndex: 3,
                 width: "100%",
-                padding: "8px",
+                padding: "8px 4px",
                 textAlign: "center",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
               }}
             >
               <h3
                 className={styles.nome}
                 style={{
+                  ...estiloTextoAntiEstouro,
                   color: "#fff",
                   margin: "0 0 2px 0",
                   textShadow: "0 1px 4px rgba(0,0,0,0.8)",
-                  fontSize: "12px",
+                  fontSize: "11px", // Ajustado de 12px para 11px para dar mais margem de leitura
                 }}
               >
                 {fig.nome}
@@ -130,6 +142,7 @@ export default function CardFigurinha({ fig }: { fig: FigurinhaComPosse }) {
               <p
                 className={styles.cargo}
                 style={{
+                  ...estiloTextoAntiEstouro,
                   color: fig.isRara ? "#f5d000" : "#ddd",
                   margin: 0,
                   textShadow: "0 1px 3px rgba(0,0,0,0.8)",
@@ -141,7 +154,7 @@ export default function CardFigurinha({ fig }: { fig: FigurinhaComPosse }) {
             </div>
           </>
         ) : (
-          /* Modo padrão com Emoji se não tiver imagem cadastrada no banco */
+          /* Modo padrão com Emoji */
           <>
             <div
               className={styles.avatar}
@@ -161,10 +174,26 @@ export default function CardFigurinha({ fig }: { fig: FigurinhaComPosse }) {
             >
               <span style={{ fontSize: "28px" }}>{fig.emoji}</span>
             </div>
-            <h3 className={styles.nome}>{fig.nome}</h3>
+            <h3
+              className={styles.nome}
+              style={{
+                ...estiloTextoAntiEstouro,
+                margin: "0 0 2px 0",
+                fontSize: "12px",
+                textAlign: "center",
+              }}
+            >
+              {fig.nome}
+            </h3>
             <p
               className={styles.cargo}
-              style={{ color: fig.isRara ? "#c8920a" : cor.texto }}
+              style={{
+                ...estiloTextoAntiEstouro,
+                color: fig.isRara ? "#c8920a" : cor.texto,
+                margin: 0,
+                fontSize: "10px",
+                textAlign: "center",
+              }}
             >
               {fig.cargo}
             </p>

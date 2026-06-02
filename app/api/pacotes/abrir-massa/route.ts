@@ -22,7 +22,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1. Busca os pacotes fechados
+
     const pacotesFechados = await prisma.pacote.findMany({
       where: { userId: emailUsuario, aberto: false },
       take: qtdParaAbrir,
@@ -38,9 +38,17 @@ export async function POST(req: Request) {
 
     const idsPacotes = pacotesFechados.map((p) => p.id);
 
-    // 2. Busca todas as figurinhas para o sorteio
     const todasFigurinhas = await prisma.figurinha.findMany({
-      select: { id: true, isRara: true },
+      select: {
+        id: true,
+        numero: true,
+        nome: true,
+        cargo: true,
+        area: true,
+        emoji: true,
+        imagem: true,
+        isRara: true,
+      },
     });
 
     if (todasFigurinhas.length === 0) {
@@ -50,10 +58,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🔥 MAPA DE AGRUPAMENTO NA MEMÓRIA: Evita o loop exaustivo no banco
-    // Estrutura: { [figurinhaId]: quantidadeSorteada }
     const mapaSorteio: Record<string, number> = {};
     const totalFigurinhasSorteadas = idsPacotes.length * 5;
+
+    const figurinhasSorteadasParaOFront: any[] = [];
 
     for (let i = 0; i < totalFigurinhasSorteadas; i++) {
       const eRara = Math.random() < 0.15;
@@ -63,19 +71,16 @@ export async function POST(req: Request) {
       const sorteada =
         listaSorteio[Math.floor(Math.random() * listaSorteio.length)];
 
-      // Incrementa a quantidade no objeto local do Node
       mapaSorteio[sorteada.id] = (mapaSorteio[sorteada.id] || 0) + 1;
+
+      figurinhasSorteadasParaOFront.push(sorteada);
     }
 
-    // 3. Executa as atualizações sequenciais sem travar transações longas
-    // Passo A: Seta os pacotes abertos de uma vez só
     await prisma.pacote.updateMany({
       where: { id: { in: idsPacotes } },
       data: { aberto: true },
     });
 
-    // Passo B: Descarrega o mapa agrupado para o banco usando Promessas Paralelas
-    // Se o usuário sorteou a mesma figurinha 10 vezes, faremos apenas 1 requisição para ela!
     const operacoesUpsert = Object.entries(mapaSorteio).map(
       ([figurinhaId, qtdSorteada]) => {
         const colecaoClient =
@@ -104,7 +109,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      mensagem: `🎉 ${idsPacotes.length} pacotes abertos de uma vez só! ${totalFigurinhasSorteadas} figurinhas adicionadas à sua coleção.`,
+      mensagem: `🎉 ${idsPacotes.length} pacotes abertos!`,
+      figurinhas: figurinhasSorteadasParaOFront,
     });
   } catch (error) {
     console.error("Erro ao abrir pacotes em massa:", error);

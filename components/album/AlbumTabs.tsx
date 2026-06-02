@@ -2,7 +2,7 @@
 
 import { Area } from "@/types/types";
 
-// 🔥 PALETA DE CORES 100% EXCLUSIVA (Sem nenhuma repetição)
+// 🔥 PALETA DE CORES 100% EXCLUSIVA (Removidas as chaves Raras e Financeiro/Faturamento)
 const CORES_BOTÕES: Record<string, string> = {
   Todas: "#2d8a4e", // Verde Oficial Green
   SISTEMAS: "#1e5fa8", // Azul Corporativo
@@ -14,9 +14,7 @@ const CORES_BOTÕES: Record<string, string> = {
   PROJETOS: "#d35400", // Abóbora / Terracota
   SUPORTE: "#34495e", // Azul Asfalto / Slate
   "ADM/FINANCEIRO": "#c8920a", // Dourado / Mostarda
-  "FINANCEIRO/FATURAMENTO": "#0984e3", // Azul Royal Intenso (Nova Cor!)
-  DIRETORIA: "#2c3e50", // Grafite Escuro / Charcoal (Nova Cor!)
-  Raras: "#d63031", // Vermelho Rubi Vivo (Nova Cor!)
+  DIRETORIA: "#2c3e50", // Grafite Escuro / Charcoal
 };
 
 const AREAS_OFICIAIS: Area[] = [
@@ -30,9 +28,7 @@ const AREAS_OFICIAIS: Area[] = [
   "PROJETOS",
   "SUPORTE",
   "ADM/FINANCEIRO",
-  "FINANCEIRO/FATURAMENTO",
   "DIRETORIA",
-  "Raras",
 ];
 
 interface Props {

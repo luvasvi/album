@@ -8,7 +8,7 @@ import { useSession, signOut } from "next-auth/react";
 
 interface Props {
   data: (AlbumData & { ultimoResgate?: string | Date }) | null;
-  abrirPacote: () => void;
+  abrirPacote: () => void; // Gatilho nativo para 1 pacote (abre o modal no page.tsx)
   abrindoPacote: boolean;
 }
 
@@ -20,41 +20,46 @@ export default function AlbumHeader({
   const { data: session } = useSession();
   const router = useRouter();
 
-  // ⚡ ESTADO LOCAL CRÍTICO: Controla os pacotes na tela de forma reativa e instantânea
+  // Controla o saldo de pacotes na tela de forma reativa
   const [saldoPacotes, setSaldoPacotes] = useState(data?.totalPacotes ?? 0);
 
-  // Sincroniza o estado local caso os dados vindos do servidor mudem
+  // 📱 Estado para controlar a responsividade via JS de forma limpa
+  const [isMobile, setIsMobile] = useState(false);
+
   useEffect(() => {
     if (data) {
       setSaldoPacotes(data.totalPacotes);
     }
   }, [data?.totalPacotes]);
 
+  // Listener para identificar se a tela é mobile (abaixo de 768px)
+  useEffect(() => {
+    const checkMobile = () =>
+      setIsMobile(window.matchMedia("(max-width: 768px)").matches);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
   const totalPacotes = saldoPacotes;
   const temPacotes = totalPacotes > 0;
 
-  // Estados do Cooldown e Cronômetro
   const [dataAlvoCooldown, setDataAlvoCooldown] = useState<number | null>(null);
   const [tempoRestante, setTempoRestante] = useState<string>("");
   const [abrindoMassa, setAbrindoMassa] = useState(false);
 
-  // 1. Verifica a API ao carregar a página (Versão Blindada Anti-Crash)
+  // Verifica a API ao carregar a página
   useEffect(() => {
     if (session?.user?.email) {
       const verificarEreclamarPacotes = async () => {
         try {
           const res = await fetch("/api/pacotes/reclamar", { method: "POST" });
-
           const textoResposta = await res.text();
-          if (!textoResposta) {
-            console.warn("⚠️ API de pacotes retornou um corpo vazio.");
-            return;
-          }
+          if (!textoResposta) return;
 
           const resultado = JSON.parse(textoResposta);
 
           if (res.ok && resultado.success) {
-            // Atualiza o saldo local adicionando os 5 pacotes sem travar a tela com alerta
             setSaldoPacotes((prev) => prev + 5);
             window.dispatchEvent(new Event("atualizarColecao"));
             router.refresh();
@@ -70,7 +75,7 @@ export default function AlbumHeader({
     }
   }, [session, router, data?.totalPacotes]);
 
-  // 2. Cronômetro Regressivo Baseado na Resposta Real da API
+  // Cronômetro Regressivo
   useEffect(() => {
     if (temPacotes || !dataAlvoCooldown) {
       setTempoRestante("");
@@ -92,59 +97,38 @@ export default function AlbumHeader({
       const minutos = Math.floor((diferenca % (1000 * 60 * 60)) / (1000 * 60));
       const segundos = Math.floor((diferenca % (1000 * 60)) / 1000);
 
-      const hStr = String(horas).padStart(2, "0");
-      const mStr = String(minutos).padStart(2, "0");
-      const sStr = String(segundos).padStart(2, "0");
-
-      setTempoRestante(`${hStr}h ${mStr}m ${sStr}s`);
+      setTempoRestante(
+        `${String(horas).padStart(2, "0")}h ${String(minutos).padStart(2, "0")}m ${String(segundos).padStart(2, "0")}s`,
+      );
     };
 
     atualizarCronometro();
     const intervalo = setInterval(atualizarCronometro, 1000);
-
     return () => clearInterval(intervalo);
   }, [dataAlvoCooldown, temPacotes]);
 
-  // 🔥 3. Função Reativa para disparar a abertura em lote/massa
-  const abrirPacotesEmMassa = async (quantidade: number) => {
-    if (abrindoMassa || abrindoPacote) return;
+  // 🔥 1. Ajuste na função em massa para passar o evento customizado que o page.tsx vai ler
+  const lidarComAberturaMassaLinkada = () => {
+    if (totalPacotes < 5 || abrindoMassa || abrindoPacote) return;
 
-    // ⚡ Efeito Fluido: Subtrai os pacotes na interface visual imediatamente antes da API responder
-    setSaldoPacotes((prev) => Math.max(0, prev - quantidade));
+    setSaldoPacotes((prev) => Math.max(0, prev - 5));
     setAbrindoMassa(true);
 
-    try {
-      const res = await fetch("/api/pacotes/abrir-massa", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quantidade }),
-      });
+    // Dispara um evento global informando ao page.tsx para abrir o modal no modo "LOTE 5x"
+    const eventoLote = new CustomEvent("dispararAberturaLote", {
+      detail: { qtd: 5 },
+    });
+    window.dispatchEvent(eventoLote);
 
-      const resultado = await res.json();
-
-      if (res.ok && resultado.success) {
-        // 🔥 GATILHO GLOBAL: Avisa o Grid que as figurinhas entraram para ele atualizar sem F5!
-        window.dispatchEvent(new Event("atualizarColecao"));
-        router.refresh();
-      } else {
-        console.error(
-          `Erro da API: ${resultado.error || "Falha ao abrir lote"}`,
-        );
-        router.refresh(); // Devolve a quantidade real se o servidor rejeitar
-      }
-    } catch (error) {
-      console.error("Erro na requisição de abertura em lote:", error);
-      router.refresh();
-    } finally {
+    // Trava um timer pequeno idêntico à abertura única para revalidar estados
+    setTimeout(() => {
       setAbrindoMassa(false);
-    }
+    }, 1000);
   };
 
-  // Envelopa a função original de abrir 1 pacote para também descontar visualmente na hora
   const lidarComAberturaUnica = () => {
     setSaldoPacotes((prev) => Math.max(0, prev - 1));
     abrirPacote();
-    // Dispara a revalidação da coleção também para abertura unitária
     setTimeout(() => {
       window.dispatchEvent(new Event("atualizarColecao"));
     }, 800);
@@ -160,19 +144,21 @@ export default function AlbumHeader({
         backdropFilter: "blur(10px)",
         borderRadius: "14px",
         boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
-        padding: "12px 24px",
+        padding: isMobile ? "16px" : "12px 24px",
         display: "flex",
         alignItems: "center",
-        justifyContent: "space-between",
-        flexWrap: "wrap",
-        gap: "12px",
+        flexDirection: isMobile ? "column" : "row",
+        justifyContent: isMobile ? "center" : "space-between",
+        gap: isMobile ? "16px" : "12px",
+        boxSizing: "border-box",
       }}
     >
-      {/* Bloco 1: Logo Oficial */}
+      {/* Bloco 1: Logo Oficial com Ajuste de Fundo */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
+          justifyContent: "center",
           height: "45px",
           flexShrink: 0,
         }}
@@ -180,9 +166,12 @@ export default function AlbumHeader({
         <Image
           src="/images/logo green.png"
           alt="Logo Green Paperless"
-          width={140}
-          height={45}
-          style={{ objectFit: "contain" }}
+          width={130}
+          height={42}
+          style={{
+            objectFit: "contain",
+            mixBlendMode: "multiply",
+          }}
           priority
         />
       </div>
@@ -193,12 +182,14 @@ export default function AlbumHeader({
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "12px",
+            justifyContent: "center",
+            gap: "10px",
             background: "rgba(0,0,0,0.03)",
             padding: "6px 14px",
             borderRadius: "30px",
             border: "1px solid rgba(0,0,0,0.04)",
-            flexShrink: 0,
+            width: isMobile ? "100%" : "auto",
+            boxSizing: "border-box",
           }}
         >
           {session.user.image && (
@@ -207,8 +198,8 @@ export default function AlbumHeader({
               alt={session.user.name ?? "Usuário"}
               referrerPolicy="no-referrer"
               style={{
-                width: "28px",
-                height: "28px",
+                width: "26px",
+                height: "26px",
                 borderRadius: "50%",
                 boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
                 objectFit: "cover",
@@ -222,7 +213,7 @@ export default function AlbumHeader({
           <span
             style={{
               fontFamily: "'Barlow Condensed', sans-serif",
-              fontSize: "14px",
+              fontSize: "13px",
               fontWeight: 700,
               color: "#333",
               letterSpacing: "0.5px",
@@ -234,31 +225,22 @@ export default function AlbumHeader({
             </span>
           </span>
 
-          {/* Divisor interno discreto */}
           <span style={{ color: "rgba(0,0,0,0.15)", fontSize: "12px" }}>|</span>
 
-          {/* 🔥 BOTÃO DE SAIR REATIVO */}
           <button
-            onClick={() => signOut({ callbackUrl: "/login" })} // Desloga e redireciona direto pro login
+            onClick={() => signOut({ callbackUrl: "/login" })}
             style={{
               background: "none",
               border: "none",
               fontFamily: "'Barlow Condensed', sans-serif",
               fontSize: "12px",
               fontWeight: 800,
-              color: "#dc2626", // Vermelho Alerta
+              color: "#dc2626",
               cursor: "pointer",
               letterSpacing: "0.5px",
               textTransform: "uppercase",
               padding: "2px 6px",
               borderRadius: "4px",
-              transition: "all 0.2s ease",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(220, 38, 38, 0.1)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "none";
             }}
           >
             Sair
@@ -271,8 +253,10 @@ export default function AlbumHeader({
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "12px",
+          justifyContent: "center",
+          gap: "10px",
           flexWrap: "wrap",
+          width: isMobile ? "100%" : "auto",
         }}
       >
         {/* Card: Coleção Geral */}
@@ -280,12 +264,13 @@ export default function AlbumHeader({
           style={{
             background: "#fff",
             borderRadius: "10px",
-            padding: "6px 16px",
+            padding: "6px 12px",
             textAlign: "center",
             border: "1px solid rgba(0,0,0,0.06)",
             boxShadow: "0 2px 6px rgba(0,0,0,0.02)",
-            minWidth: "95px",
-            height: "54px",
+            flex: isMobile ? "1" : "none",
+            minWidth: "85px",
+            height: "50px",
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
@@ -296,7 +281,7 @@ export default function AlbumHeader({
               fontSize: "8px",
               color: "#777",
               textTransform: "uppercase",
-              letterSpacing: "1.5px",
+              letterSpacing: "1px",
               fontWeight: 800,
               margin: 0,
             }}
@@ -306,7 +291,7 @@ export default function AlbumHeader({
           <p
             style={{
               fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: "22px",
+              fontSize: "20px",
               color: "#2d8a4e",
               lineHeight: 1.1,
               margin: 0,
@@ -314,24 +299,25 @@ export default function AlbumHeader({
           >
             {data?.totalPossuidas ?? 0}
             <span
-              style={{ fontSize: "12px", color: "#aaa", marginLeft: "1px" }}
+              style={{ fontSize: "11px", color: "#aaa", marginLeft: "1px" }}
             >
               /{data?.totalFigurinhas ?? 0}
             </span>
           </p>
         </div>
 
-        {/* Card: Pacotes Disponíveis + Cronômetro */}
+        {/* Card: Pacotes Disponíveis */}
         <div
           style={{
             background: "#fff",
             borderRadius: "10px",
-            padding: "6px 16px",
+            padding: "6px 12px",
             textAlign: "center",
             border: "1px solid rgba(0,0,0,0.06)",
             boxShadow: "0 2px 6px rgba(0,0,0,0.02)",
+            flex: isMobile ? "1" : "none",
             minWidth: "85px",
-            height: "54px",
+            height: "50px",
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
@@ -342,7 +328,7 @@ export default function AlbumHeader({
               fontSize: "8px",
               color: "#777",
               textTransform: "uppercase",
-              letterSpacing: "1.5px",
+              letterSpacing: "1px",
               fontWeight: 800,
               margin: 0,
             }}
@@ -352,7 +338,7 @@ export default function AlbumHeader({
           <p
             style={{
               fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: "22px",
+              fontSize: "20px",
               color: "#c8920a",
               lineHeight: 1.1,
               margin: 0,
@@ -360,14 +346,12 @@ export default function AlbumHeader({
           >
             {totalPacotes}
           </p>
-
           {tempoRestante && !temPacotes && (
             <div
               style={{
                 fontSize: "7px",
                 fontWeight: "900",
                 color: "#dc2626",
-                letterSpacing: "0.2px",
                 whiteSpace: "nowrap",
                 marginTop: "-1px",
               }}
@@ -377,9 +361,16 @@ export default function AlbumHeader({
           )}
         </div>
 
-        {/* Seção de Botões Unificada */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-          {/* Botão de Abrir 1 Pacote Tradicional */}
+        {/* 🔥 Seção de Botões Exclusivos (Removido botão "Abrir Tudo") */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "6px",
+            width: isMobile ? "100%" : "auto",
+          }}
+        >
+          {/* Botão Principal: 1 Pacote */}
           <button
             onClick={lidarComAberturaUnica}
             disabled={!temPacotes || abrindoPacote || abrindoMassa}
@@ -389,19 +380,18 @@ export default function AlbumHeader({
                 : "#e0e0e0",
               color: temPacotes ? "#1a0a00" : "#999",
               border: "none",
-              borderRadius: "10px",
-              padding: "12px 20px",
+              borderRadius: "8px",
+              padding: "10px 16px",
               fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: "16px",
-              letterSpacing: "1.5px",
+              fontSize: "15px",
+              letterSpacing: "1px",
               cursor:
                 temPacotes && !abrindoPacote && !abrindoMassa
                   ? "pointer"
                   : "not-allowed",
-              boxShadow: temPacotes ? "0 4px 0 #a06c00" : "none",
-              transition: "all 0.1s ease",
+              boxShadow: temPacotes ? "0 3px 0 #a06c00" : "none",
               whiteSpace: "nowrap",
-              flexShrink: 0,
+              width: "100%",
             }}
           >
             {abrindoPacote
@@ -411,50 +401,32 @@ export default function AlbumHeader({
                 : "ABRIR 1 PACOTE 🔥"}
           </button>
 
-          {/* Sub-Ações para Abertura em Massa Dinâmica sem Alerts */}
-          {temPacotes && !abrindoPacote && !abrindoMassa && (
-            <div style={{ display: "flex", gap: "6px", width: "100%" }}>
-              {totalPacotes >= 5 && (
-                <button
-                  onClick={() => abrirPacotesEmMassa(5)}
-                  style={{
-                    flex: 1,
-                    background: "#2d8a4e",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: "6px",
-                    padding: "4px 8px",
-                    fontSize: "10px",
-                    fontWeight: "bold",
-                    cursor: "pointer",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Abrir 5x 📦
-                </button>
-              )}
-
-              {totalPacotes > 1 && (
-                <button
-                  onClick={() => abrirPacotesEmMassa(totalPacotes)}
-                  style={{
-                    flex: 2,
-                    background: "#1a1a1a",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: "6px",
-                    padding: "4px 8px",
-                    fontSize: "10px",
-                    fontWeight: "bold",
-                    cursor: "pointer",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Abrir Tudo ({totalPacotes}) ⚡
-                </button>
-              )}
-            </div>
-          )}
+          {/* 🔥 Botão de Lote Fixo: Apenas 5x com Animação */}
+          {temPacotes &&
+            totalPacotes >= 5 &&
+            !abrindoPacote &&
+            !abrindoMassa && (
+              <button
+                onClick={lidarComAberturaMassaLinkada}
+                style={{
+                  background: "linear-gradient(135deg, #2d8a4e, #1e5fa8)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "8px",
+                  padding: "8px 16px",
+                  fontFamily: "'Bebas Neue', sans-serif",
+                  fontSize: "14px",
+                  letterSpacing: "1px",
+                  cursor: "pointer",
+                  boxShadow: "0 3px 0 #144d2b",
+                  whiteSpace: "nowrap",
+                  width: "100%",
+                  textTransform: "uppercase",
+                }}
+              >
+                Abrir 5 Pacotes 📦
+              </button>
+            )}
         </div>
       </div>
     </header>

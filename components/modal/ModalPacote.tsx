@@ -14,12 +14,10 @@ export default function ModalPacote({ figurinhas, onFechar }: Props) {
   const [reveladas, setReveladas] = useState<number[]>([]);
   const [todasReveladas, setTodasReveladas] = useState(false);
 
-  // Detecta se é a abertura em lote (mais de 5 figurinhas acumuladas)
   const isAberturaEmLote = figurinhas.length > 5;
 
   useEffect(() => {
     if (isAberturaEmLote) {
-      // ⚡ COMPORTAMENTO EM LOTE: Revela tudo em blocos rápidos de 5 em 5 para não demorar uma eternidade
       figurinhas.forEach((_, i) => {
         const bloco = Math.floor(i / 5);
         setTimeout(
@@ -31,10 +29,9 @@ export default function ModalPacote({ figurinhas, onFechar }: Props) {
             });
           },
           bloco * 200 + 200,
-        ); // Intervalo bem curto entre os blocos
+        );
       });
     } else {
-      // 🕒 COMPORTAMENTO PADRÃO: Revelação clássica sequencial de 1 em 1
       figurinhas.forEach((_, i) => {
         setTimeout(
           () => {

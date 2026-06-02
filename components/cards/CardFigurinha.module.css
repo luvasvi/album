@@ -8,15 +8,16 @@
   transition:
     transform 0.15s ease,
     box-shadow 0.15s ease;
-
   display: flex;
-
   flex-direction: column;
+}
+
+.card:hover {
+  transform: scale(1.07) rotate(1.5deg);
 }
 
 .topo {
   padding: 5px 6px 20px;
-
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -66,9 +67,10 @@
   margin-bottom: 6px;
 }
 
+/* 📝 Ajuste na tipografia do Nome */
 .nome {
   font-family: "Bebas Neue", sans-serif;
-  font-size: 11px;
+  font-size: 12px; /* Aumentado sutilmente para bater com os 12px do TSX */
   color: #1a1a1a;
   text-align: center;
   letter-spacing: 0.5px;
@@ -77,26 +79,29 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  padding: 0 2px;
+  padding: 0 6px; /* Aumentado o recuo lateral de segurança */
+  box-sizing: border-box;
 }
 
+/* 📝 Ajuste na tipografia do Cargo */
 .cargo {
-  font-size: 7px;
+  font-size: 8px; /* Ajustado para dar mais legibilidade na base escura */
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-top: 3px;
+  margin-top: 2px;
   text-align: center;
   width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  padding: 0 4px;
+  padding: 0 6px; /* Ajustado para alinhar perfeitamente com o nome */
+  box-sizing: border-box;
 }
 
 .rodape {
   background: #fff;
-  padding: 3px 6px;
+  padding: 4px 6px; /* Um tiquinho mais de respiro vertical */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -131,13 +136,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-
   border: 2px solid #fff;
-
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-
   z-index: 10;
-}
-.card:hover {
-  transform: scale(1.07) rotate(1.5deg);
 }

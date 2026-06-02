@@ -16,7 +16,7 @@ import AlbumStats from "@/components/album/AlbumStats";
 import ModalPacote from "@/components/modal/ModalPacote";
 import ModalDetalheFigurinha from "@/components/album/ModalDetalheFigurinha";
 
-// 🎨 Configuração de fundos e blobs atualizada com as cores e chaves exclusivas de cada aba
+// 🎨 Configuração de fundos e blobs sem as abas "Raras" e "FINANCEIRO/FATURAMENTO"
 const AREA_CONFIG: Record<
   string,
   {
@@ -97,26 +97,12 @@ const AREA_CONFIG: Record<
     blob3: "#1e5fa8",
     titulo: "#c8920a",
   },
-  "FINANCEIRO/FATURAMENTO": {
-    bg: "#eaf4fc",
-    blob1: "#0984e3",
-    blob2: "#2d8a4e",
-    blob3: "#34495e",
-    titulo: "#0984e3",
-  },
   DIRETORIA: {
     bg: "#eaeded",
     blob1: "#2c3e50",
     blob2: "#c8920a",
     blob3: "#cc092f",
     titulo: "#2c3e50",
-  },
-  Raras: {
-    bg: "#fdf2f2",
-    blob1: "#d63031",
-    blob2: "#f5d000",
-    blob3: "#8e44ad",
-    titulo: "#d63031",
   },
 };
 
@@ -131,8 +117,6 @@ export default function AlbumPage() {
   const [figurinhasPacote, setFigurinhasPacote] = useState<
     FigurinhaComPosse[] | null
   >(null);
-
-  // Controle da figurinha selecionada para troca
   const [figurinhaSelecionada, setFigurinhaSelecionada] =
     useState<FigurinhaComPosse | null>(null);
 
@@ -144,10 +128,8 @@ export default function AlbumPage() {
     }
   }, [status, router]);
 
-  // Função que bate no banco e atualiza o estado reativo principal da tela
   const carregarAlbum = useCallback(async () => {
     if (status !== "authenticated") return;
-
     try {
       const json = await buscarAlbum();
       setData(json);
@@ -160,32 +142,24 @@ export default function AlbumPage() {
 
   useEffect(() => {
     if (status !== "authenticated" || carregou.current) return;
-
     carregou.current = true;
     void carregarAlbum();
   }, [carregarAlbum, status]);
 
-  // Escutador reativo que recarrega o estado local das figurinhas instantaneamente sem F5!
   useEffect(() => {
     const escutarMudancasNaColecao = () => {
       void carregarAlbum();
     };
-
     window.addEventListener("atualizarColecao", escutarMudancasNaColecao);
     return () =>
       window.removeEventListener("atualizarColecao", escutarMudancasNaColecao);
   }, [carregarAlbum]);
 
   const abrirPacote = async () => {
-    if (!data || data.totalPacotes === 0 || abrindoPacote) {
-      return;
-    }
-
+    if (!data || data.totalPacotes === 0 || abrindoPacote) return;
     setAbrindoPacote(true);
-
     try {
       const json = await abrirPacoteRequest();
-
       if (json.figurinhas) {
         setFigurinhasPacote(json.figurinhas);
       }
@@ -196,19 +170,62 @@ export default function AlbumPage() {
     }
   };
 
+  useEffect(() => {
+    const lidarComAberturaLoteEvent = async (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const qtd = customEvent.detail?.qtd ?? 5;
+
+      if (!data || abrindoPacote) return;
+      setAbrindoPacote(true);
+
+      try {
+        const res = await fetch("/api/pacotes/abrir-massa", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ quantidade: qtd }),
+        });
+
+        const resultado = await res.json();
+        if (res.ok && resultado.success && resultado.figurinhas) {
+          setFigurinhasPacote(resultado.figurinhas);
+        }
+      } catch (err) {
+        console.error("Erro no processamento reativo de lote 5x:", err);
+      } finally {
+        setAbrindoPacote(false);
+      }
+    };
+
+    window.addEventListener("dispararAberturaLote", lidarComAberturaLoteEvent);
+    return () =>
+      window.removeEventListener(
+        "dispararAberturaLote",
+        lidarComAberturaLoteEvent,
+      );
+  }, [data, abrindoPacote]);
+
   const fecharModal = () => {
     setFigurinhasPacote(null);
     void carregarAlbum();
   };
 
-  // 🔥 FILTRAGEM CORRIGIDA: Comparação estrita letra por letra eliminando duplicações
+  // ⚡ FILTRAGEM UNIFICADA: Mapeia faturamento para dentro do ADM/Financeiro automaticamente
   const figurinhasFiltradas =
     data?.figurinhas.filter((f) => {
       if (abaAtiva === "Todas") return true;
-      if (abaAtiva === "Raras") return f.isRara;
 
-      // Retorna apenas se o setor gravado for estritamente igual à aba ativa
-      return f.area.toUpperCase() === abaAtiva.toUpperCase();
+      const areaFormatada = f.area.toUpperCase().trim();
+      const abaFormatada = abaAtiva.toUpperCase().trim();
+
+      // Se a aba selecionada for ADM/FINANCEIRO, captura os dois setores do banco
+      if (abaFormatada === "ADM/FINANCEIRO") {
+        return (
+          areaFormatada === "ADM/FINANCEIRO" ||
+          areaFormatada === "FINANCEIRO/FATURAMENTO"
+        );
+      }
+
+      return areaFormatada === abaFormatada;
     }) ?? [];
 
   const cfg = AREA_CONFIG[abaAtiva] ?? AREA_CONFIG.Todas;
@@ -257,7 +274,6 @@ export default function AlbumPage() {
           abrirPacote={abrirPacote}
           abrindoPacote={abrindoPacote}
         />
-
         <AlbumTabs abaAtiva={abaAtiva} setAbaAtiva={setAbaAtiva} />
 
         <main
@@ -286,7 +302,6 @@ export default function AlbumPage() {
             <AlbumStats abaAtiva={abaAtiva} figurinhas={figurinhasFiltradas} />
           </div>
 
-          {/* Contêiner capturador de clique em volta do Grid */}
           <div
             onClick={(e) => {
               const target = e.target as HTMLElement;
@@ -296,7 +311,6 @@ export default function AlbumPage() {
                 const figurinhaAchada = figurinhasFiltradas.find(
                   (f) => f.id === figId,
                 );
-
                 if (figurinhaAchada && figurinhaAchada.possui) {
                   setFigurinhaSelecionada(figurinhaAchada);
                 }
