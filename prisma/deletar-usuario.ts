@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 // 💡 DIGITE O EMAIL DO USUÁRIO QUE VOCÊ QUER APAGAR
-const EMAIL_PARA_DELETAR = "luvasvieira17@gmail.com";
+const EMAIL_PARA_DELETAR = "";
 
 async function main() {
   console.log(
