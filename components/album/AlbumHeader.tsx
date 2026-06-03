@@ -348,7 +348,7 @@ export default function AlbumHeader({
               width: "100%",
             }}
           >
-            {abrindoPacote ? "ABRINDO..." : abrindoMassa ? "PROCESSANDO..." : "ABRIR 1 PACOTE 🔥"}
+            {abrindoPacote ? "ABRINDO..." : abrindoMassa ? "PROCESSANDO..." : "ABRIR 1 PACOTE "}
           </button>
 
           {/* Botão de Lote Fixo: Apenas 5x com Animação */}
@@ -371,7 +371,7 @@ export default function AlbumHeader({
                 textTransform: "uppercase",
               }}
             >
-              Abrir 5 Pacotes 📦
+              Abrir 5 Pacotes 
             </button>
           )}
         </div>

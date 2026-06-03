@@ -165,7 +165,7 @@ export default function AlbumPage() {
     }
   };
 
-  // 🔥 ESCUTADOR LINKADO EXCLUSIVO: Abre os 5 pacotes com animação reativa vindo do header
+
   useEffect(() => {
     const lidarComAberturaLoteEvent = async (e: Event) => {
       const customEvent = e as CustomEvent;
@@ -201,7 +201,6 @@ export default function AlbumPage() {
     void carregarAlbum();
   };
 
-  // ⚡ FILTRAGEM UNIFICADA: Junta faturamento e administrativo na mesma aba perfeitamente
   const figurinhasFiltradas =
     data?.figurinhas.filter((f) => {
       if (abaAtiva === "Todas") return true;

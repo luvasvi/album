@@ -102,6 +102,8 @@ export async function POST(req: Request) {
         totalAbertos: idsPacotes.length,
         listaFront: figurinhasSorteadasParaOFront,
       };
+    }, {
+      timeout: 25000
     });
 
     return NextResponse.json({
