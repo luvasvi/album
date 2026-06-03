@@ -1,5 +1,5 @@
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth"; // ⚡ MUDANÇA AQUI: Apontando para a sua nova config global e isolada
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -13,7 +13,7 @@ export async function GET() {
 
     const USER_ID = session.user.email;
 
-    // Busca tudo em paralelo (sua lógica perfeita)
+    // Busca tudo em paralelo (sua lógica perfeita e performática)
     const [figurinhas, colecao, totalPacotes] = await Promise.all([
       prisma.figurinha.findMany({
         orderBy: {
@@ -58,10 +58,12 @@ export async function GET() {
       };
     });
 
+    const totalPossuidasReal = colecao.filter((item) => item.quantidade > 0).length;
+
     return NextResponse.json({
       figurinhas: figurinhasComPosse,
       totalPacotes,
-      totalPossuidas: colecao.length,
+      totalPossuidas: totalPossuidasReal,
       totalFigurinhas: figurinhas.length,
     });
   } catch (error) {

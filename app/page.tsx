@@ -16,7 +16,6 @@ import AlbumStats from "@/components/album/AlbumStats";
 import ModalPacote from "@/components/modal/ModalPacote";
 import ModalDetalheFigurinha from "@/components/album/ModalDetalheFigurinha";
 
-// 🎨 Configuração de fundos e blobs sem as abas "Raras" e "FINANCEIRO/FATURAMENTO"
 const AREA_CONFIG: Record<
   string,
   {
@@ -114,11 +113,8 @@ export default function AlbumPage() {
   const [abaAtiva, setAbaAtiva] = useState<Area>("Todas");
   const [loading, setLoading] = useState(true);
   const [abrindoPacote, setAbrindoPacote] = useState(false);
-  const [figurinhasPacote, setFigurinhasPacote] = useState<
-    FigurinhaComPosse[] | null
-  >(null);
-  const [figurinhaSelecionada, setFigurinhaSelecionada] =
-    useState<FigurinhaComPosse | null>(null);
+  const [figurinhasPacote, setFigurinhasPacote] = useState<FigurinhaComPosse[] | null>(null);
+  const [figurinhaSelecionada, setFigurinhaSelecionada] = useState<FigurinhaComPosse | null>(null);
 
   const carregou = useRef(false);
 
@@ -151,8 +147,7 @@ export default function AlbumPage() {
       void carregarAlbum();
     };
     window.addEventListener("atualizarColecao", escutarMudancasNaColecao);
-    return () =>
-      window.removeEventListener("atualizarColecao", escutarMudancasNaColecao);
+    return () => window.removeEventListener("atualizarColecao", escutarMudancasNaColecao);
   }, [carregarAlbum]);
 
   const abrirPacote = async () => {
@@ -170,6 +165,7 @@ export default function AlbumPage() {
     }
   };
 
+  // 🔥 ESCUTADOR LINKADO EXCLUSIVO: Abre os 5 pacotes com animação reativa vindo do header
   useEffect(() => {
     const lidarComAberturaLoteEvent = async (e: Event) => {
       const customEvent = e as CustomEvent;
@@ -197,11 +193,7 @@ export default function AlbumPage() {
     };
 
     window.addEventListener("dispararAberturaLote", lidarComAberturaLoteEvent);
-    return () =>
-      window.removeEventListener(
-        "dispararAberturaLote",
-        lidarComAberturaLoteEvent,
-      );
+    return () => window.removeEventListener("dispararAberturaLote", lidarComAberturaLoteEvent);
   }, [data, abrindoPacote]);
 
   const fecharModal = () => {
@@ -209,7 +201,7 @@ export default function AlbumPage() {
     void carregarAlbum();
   };
 
-  // ⚡ FILTRAGEM UNIFICADA: Mapeia faturamento para dentro do ADM/Financeiro automaticamente
+  // ⚡ FILTRAGEM UNIFICADA: Junta faturamento e administrativo na mesma aba perfeitamente
   const figurinhasFiltradas =
     data?.figurinhas.filter((f) => {
       if (abaAtiva === "Todas") return true;
@@ -217,7 +209,6 @@ export default function AlbumPage() {
       const areaFormatada = f.area.toUpperCase().trim();
       const abaFormatada = abaAtiva.toUpperCase().trim();
 
-      // Se a aba selecionada for ADM/FINANCEIRO, captura os dois setores do banco
       if (abaFormatada === "ADM/FINANCEIRO") {
         return (
           areaFormatada === "ADM/FINANCEIRO" ||
@@ -232,26 +223,9 @@ export default function AlbumPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          background: "#f0f4f0",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <p
-          style={{
-            fontFamily: "'Bebas Neue', sans-serif",
-            fontSize: "28px",
-            color: "#2d8a4e",
-            letterSpacing: "6px",
-          }}
-        >
-          {status === "loading"
-            ? "VERIFICANDO LOGIN..."
-            : "CARREGANDO ÁLBUM..."}
+      <div style={{ minHeight: "100vh", background: "#f0f4f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "28px", color: "#2d8a4e", letterSpacing: "6px" }}>
+          {status === "loading" ? "VERIFICANDO LOGIN..." : "CARREGANDO ÁLBUM..."}
         </p>
       </div>
     );
@@ -261,19 +235,8 @@ export default function AlbumPage() {
 
   return (
     <>
-      <div
-        style={{
-          minHeight: "100vh",
-          background: "#d6ddd6",
-          fontFamily: "'Barlow Condensed', sans-serif",
-          padding: "16px",
-        }}
-      >
-        <AlbumHeader
-          data={data}
-          abrirPacote={abrirPacote}
-          abrindoPacote={abrindoPacote}
-        />
+      <div style={{ minHeight: "100vh", background: "#d6ddd6", fontFamily: "'Barlow Condensed', sans-serif", padding: "16px" }}>
+        <AlbumHeader data={data} abrirPacote={abrirPacote} abrindoPacote={abrindoPacote} />
         <AlbumTabs abaAtiva={abaAtiva} setAbaAtiva={setAbaAtiva} />
 
         <main
@@ -290,15 +253,9 @@ export default function AlbumPage() {
             minHeight: "80vh",
           }}
         >
-          <AlbumBackground
-            blob1={cfg.blob1}
-            blob2={cfg.blob2}
-            blob3={cfg.blob3}
-          />
+          <AlbumBackground blob1={cfg.blob1} blob2={cfg.blob2} blob3={cfg.blob3} />
 
-          <div
-            style={{ position: "relative", zIndex: 1, padding: "24px 28px 0" }}
-          >
+          <div style={{ position: "relative", zIndex: 1, padding: "24px 28px 0" }}>
             <AlbumStats abaAtiva={abaAtiva} figurinhas={figurinhasFiltradas} />
           </div>
 
@@ -308,9 +265,7 @@ export default function AlbumPage() {
               const cardElement = target.closest("[data-figurinha-id]");
               if (cardElement) {
                 const figId = cardElement.getAttribute("data-figurinha-id");
-                const figurinhaAchada = figurinhasFiltradas.find(
-                  (f) => f.id === figId,
-                );
+                const figurinhaAchada = figurinhasFiltradas.find((f) => f.id === figId);
                 if (figurinhaAchada && figurinhaAchada.possui) {
                   setFigurinhaSelecionada(figurinhaAchada);
                 }
@@ -329,10 +284,7 @@ export default function AlbumPage() {
       )}
 
       {figurinhaSelecionada && (
-        <ModalDetalheFigurinha
-          fig={figurinhaSelecionada}
-          onFechar={() => setFigurinhaSelecionada(null)}
-        />
+        <ModalDetalheFigurinha fig={figurinhaSelecionada} onFechar={() => setFigurinhaSelecionada(null)} />
       )}
     </>
   );

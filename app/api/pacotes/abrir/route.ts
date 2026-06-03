@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../auth/[...nextauth]/route"; 
+import { authOptions } from "@/lib/auth";
 
 export async function POST() {
   try {
-
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email) {
@@ -14,59 +13,43 @@ export async function POST() {
 
     const USER_ID = session.user.email;
 
-    const pacote = await prisma.pacote.findFirst({
-      where: {
-        userId: USER_ID,
-        aberto: false,
-      },
-    });
-
-    if (!pacote) {
-      return NextResponse.json(
-        { error: "Sem pacotes disponíveis" },
-        { status: 400 },
-      );
-    }
-
-
     const todasFigurinhas = await prisma.figurinha.findMany();
 
     if (todasFigurinhas.length === 0) {
       return NextResponse.json(
-        { error: "Nenhuma figurinha cadastrada" },
-        { status: 400 },
+        { error: "Nenhuma figurinha cadastrada no sistema" },
+        { status: 500 },
       );
     }
 
-    const raras = todasFigurinhas.filter((f) => f.isRara);
-    const comuns = todasFigurinhas.filter((f) => !f.isRara);
+    const sorteadas = await prisma.$transaction(async (tx) => {
+      
+      const pacote = await tx.pacote.findFirst({
+        where: {
+          userId: USER_ID,
+          aberto: false,
+        },
+      });
 
-    const sorteadas = [];
-
-    for (let i = 0; i < 5; i++) {
-      const ehRara = Math.random() < 0.15;
-      let pool = ehRara ? raras : comuns;
-
-      if (pool.length === 0) {
-        pool = todasFigurinhas;
+      if (!pacote) {
+        throw new Error("SEM_PACOTES");
       }
 
-      const fig = pool[Math.floor(Math.random() * pool.length)];
-      sorteadas.push(fig);
-    }
+      await tx.pacote.update({
+        where: { id: pacote.id },
+        data: { aberto: true },
+      });
 
-    await prisma.$transaction([
-      prisma.pacote.update({
-        where: {
-          id: pacote.id,
-        },
-        data: {
-          aberto: true,
-        },
-      }),
+      const poolSorteadas = [];
+      for (let i = 0; i < 5; i++) {
+        const fig = todasFigurinhas[Math.floor(Math.random() * todasFigurinhas.length)];
+        poolSorteadas.push(fig);
+      }
 
-      ...sorteadas.map((fig) =>
-        prisma.colecao.upsert({
+      const colecaoClient = (tx as any).colecao || (tx as any).Colecao;
+
+      for (const fig of poolSorteadas) {
+        await colecaoClient.upsert({
           where: {
             userId_figurinhaId: {
               userId: USER_ID,
@@ -74,27 +57,35 @@ export async function POST() {
             },
           },
           update: {
-            quantidade: {
-              increment: 1,
-            },
+            quantidade: { increment: 1 },
           },
           create: {
             userId: USER_ID,
             figurinhaId: fig.id,
             quantidade: 1,
           },
-        }),
-      ),
-    ]);
+        });
+      }
+
+      return poolSorteadas;
+    });
 
     return NextResponse.json({
       figurinhas: sorteadas,
     });
-  } catch (error) {
+
+  } catch (error: any) {
+    if (error.message === "SEM_PACOTES") {
+      return NextResponse.json(
+        { error: "Você não tem pacotes disponíveis para abrir." },
+        { status: 400 },
+      );
+    }
+
     console.error("[PACOTE_ABRIR]", error);
 
     return NextResponse.json(
-      { error: "Erro ao abrir pacote" },
+      { error: "Erro interno ao abrir pacote" },
       { status: 500 },
     );
   }

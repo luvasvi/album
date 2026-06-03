@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 
 export async function POST(req: Request) {
-  const session = await getServerSession();
+
+  const session = await getServerSession(authOptions);
 
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
@@ -22,22 +24,6 @@ export async function POST(req: Request) {
       );
     }
 
-
-    const pacotesFechados = await prisma.pacote.findMany({
-      where: { userId: emailUsuario, aberto: false },
-      take: qtdParaAbrir,
-      select: { id: true },
-    });
-
-    if (pacotesFechados.length === 0) {
-      return NextResponse.json(
-        { error: "Você não tem pacotes fechados" },
-        { status: 400 },
-      );
-    }
-
-    const idsPacotes = pacotesFechados.map((p) => p.id);
-
     const todasFigurinhas = await prisma.figurinha.findMany({
       select: {
         id: true,
@@ -47,7 +33,6 @@ export async function POST(req: Request) {
         area: true,
         emoji: true,
         imagem: true,
-        isRara: true,
       },
     });
 
@@ -58,64 +43,84 @@ export async function POST(req: Request) {
       );
     }
 
-    const mapaSorteio: Record<string, number> = {};
-    const totalFigurinhasSorteadas = idsPacotes.length * 5;
+    const respostaLote = await prisma.$transaction(async (tx) => {
+      
+      const pacotesFechados = await tx.pacote.findMany({
+        where: { userId: emailUsuario, aberto: false },
+        take: qtdParaAbrir,
+        select: { id: true },
+      });
 
-    const figurinhasSorteadasParaOFront: any[] = [];
+      if (pacotesFechados.length < qtdParaAbrir) {
+        throw new Error("SALDO_INSUFICIENTE");
+      }
 
-    for (let i = 0; i < totalFigurinhasSorteadas; i++) {
-      const eRara = Math.random() < 0.15;
-      const filtradas = todasFigurinhas.filter((f) => f.isRara === eRara);
-      const listaSorteio = filtradas.length > 0 ? filtradas : todasFigurinhas;
+      const idsPacotes = pacotesFechados.map((p) => p.id);
 
-      const sorteada =
-        listaSorteio[Math.floor(Math.random() * listaSorteio.length)];
+      await tx.pacote.updateMany({
+        where: { id: { in: idsPacotes } },
+        data: { aberto: true },
+      });
 
-      mapaSorteio[sorteada.id] = (mapaSorteio[sorteada.id] || 0) + 1;
+      const mapaSorteio: Record<string, number> = {};
+      const figurinhasSorteadasParaOFront: any[] = [];
+      const totalFigurinhasSorteadas = idsPacotes.length * 5;
 
-      figurinhasSorteadasParaOFront.push(sorteada);
-    }
+      for (let i = 0; i < totalFigurinhasSorteadas; i++) {
+        const sorteada = todasFigurinhas[Math.floor(Math.random() * todasFigurinhas.length)];
 
-    await prisma.pacote.updateMany({
-      where: { id: { in: idsPacotes } },
-      data: { aberto: true },
-    });
+        mapaSorteio[sorteada.id] = (mapaSorteio[sorteada.id] || 0) + 1;
+        figurinhasSorteadasParaOFront.push(sorteada);
+      }
 
-    const operacoesUpsert = Object.entries(mapaSorteio).map(
-      ([figurinhaId, qtdSorteada]) => {
-        const colecaoClient =
-          (prisma as any).colecao || (prisma as any).Colecao;
+      const colecaoClient = (tx as any).colecao || (tx as any).Colecao;
 
-        return colecaoClient.upsert({
-          where: {
-            userId_figurinhaId: {
+      const operacoesUpsert = Object.entries(mapaSorteio).map(
+        ([figurinhaId, qtdSorteada]) => {
+          return colecaoClient.upsert({
+            where: {
+              userId_figurinhaId: {
+                userId: emailUsuario,
+                figurinhaId: figurinhaId,
+              },
+            },
+            update: {
+              quantidade: { increment: qtdSorteada },
+            },
+            create: {
               userId: emailUsuario,
               figurinhaId: figurinhaId,
+              quantidade: qtdSorteada,
             },
-          },
-          update: {
-            quantidade: { increment: qtdSorteada },
-          },
-          create: {
-            userId: emailUsuario,
-            figurinhaId: figurinhaId,
-            quantidade: qtdSorteada,
-          },
-        });
-      },
-    );
+          });
+        },
+      );
 
-    await Promise.all(operacoesUpsert);
+      await Promise.all(operacoesUpsert);
+
+      return {
+        totalAbertos: idsPacotes.length,
+        listaFront: figurinhasSorteadasParaOFront,
+      };
+    });
 
     return NextResponse.json({
       success: true,
-      mensagem: `🎉 ${idsPacotes.length} pacotes abertos!`,
-      figurinhas: figurinhasSorteadasParaOFront,
+      mensagem: `🎉 ${respostaLote.totalAbertos} pacotes abertos!`,
+      figurinhas: respostaLote.listaFront,
     });
-  } catch (error) {
+
+  } catch (error: any) {
+    if (error.message === "SALDO_INSUFICIENTE") {
+      return NextResponse.json(
+        { error: "Você não possui a quantidade de pacotes fechados necessária." },
+        { status: 400 },
+      );
+    }
+
     console.error("Erro ao abrir pacotes em massa:", error);
     return NextResponse.json(
-      { error: "Erro interno no servidor" },
+      { error: "Erro interno no servidor ao processar o lote" },
       { status: 500 },
     );
   }

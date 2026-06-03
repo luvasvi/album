@@ -8,7 +8,7 @@ import { useSession, signOut } from "next-auth/react";
 
 interface Props {
   data: (AlbumData & { ultimoResgate?: string | Date }) | null;
-  abrirPacote: () => void; // Gatilho nativo para 1 pacote (abre o modal no page.tsx)
+  abrirPacote: () => void;
   abrindoPacote: boolean;
 }
 
@@ -20,10 +20,10 @@ export default function AlbumHeader({
   const { data: session } = useSession();
   const router = useRouter();
 
-  // Controla o saldo de pacotes na tela de forma reativa
+
   const [saldoPacotes, setSaldoPacotes] = useState(data?.totalPacotes ?? 0);
 
-  // 📱 Estado para controlar a responsividade via JS de forma limpa
+
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -32,7 +32,6 @@ export default function AlbumHeader({
     }
   }, [data?.totalPacotes]);
 
-  // Listener para identificar se a tela é mobile (abaixo de 768px)
   useEffect(() => {
     const checkMobile = () =>
       setIsMobile(window.matchMedia("(max-width: 768px)").matches);
@@ -48,9 +47,15 @@ export default function AlbumHeader({
   const [tempoRestante, setTempoRestante] = useState<string>("");
   const [abrindoMassa, setAbrindoMassa] = useState(false);
 
-  // Verifica a API ao carregar a página
+ // Verifica a API ao carregar a página (Versão Inteligente Anti-Erros no Console)
   useEffect(() => {
     if (session?.user?.email) {
+      
+      // ⚡ CLÁUSULA DE BARREIRA: Se já sabemos que está no cooldown, barra o fetch!
+      if (dataAlvoCooldown && new Date().getTime() < dataAlvoCooldown) {
+        return;
+      }
+
       const verificarEreclamarPacotes = async () => {
         try {
           const res = await fetch("/api/pacotes/reclamar", { method: "POST" });
@@ -73,7 +78,7 @@ export default function AlbumHeader({
 
       verificarEreclamarPacotes();
     }
-  }, [session, router, data?.totalPacotes]);
+  }, [session, router, data?.totalPacotes, dataAlvoCooldown]); // ⚡ Parêntese fechado perfeitamente aqui!
 
   // Cronômetro Regressivo
   useEffect(() => {
@@ -107,20 +112,18 @@ export default function AlbumHeader({
     return () => clearInterval(intervalo);
   }, [dataAlvoCooldown, temPacotes]);
 
-  // 🔥 1. Ajuste na função em massa para passar o evento customizado que o page.tsx vai ler
   const lidarComAberturaMassaLinkada = () => {
     if (totalPacotes < 5 || abrindoMassa || abrindoPacote) return;
 
     setSaldoPacotes((prev) => Math.max(0, prev - 5));
     setAbrindoMassa(true);
 
-    // Dispara um evento global informando ao page.tsx para abrir o modal no modo "LOTE 5x"
     const eventoLote = new CustomEvent("dispararAberturaLote", {
       detail: { qtd: 5 },
     });
     window.dispatchEvent(eventoLote);
 
-    // Trava um timer pequeno idêntico à abertura única para revalidar estados
+  
     setTimeout(() => {
       setAbrindoMassa(false);
     }, 1000);
@@ -276,31 +279,12 @@ export default function AlbumHeader({
             justifyContent: "center",
           }}
         >
-          <p
-            style={{
-              fontSize: "8px",
-              color: "#777",
-              textTransform: "uppercase",
-              letterSpacing: "1px",
-              fontWeight: 800,
-              margin: 0,
-            }}
-          >
+          <p style={{ fontSize: "8px", color: "#777", textTransform: "uppercase", letterSpacing: "1px", fontWeight: 800, margin: 0 }}>
             COLEÇÃO
           </p>
-          <p
-            style={{
-              fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: "20px",
-              color: "#2d8a4e",
-              lineHeight: 1.1,
-              margin: 0,
-            }}
-          >
+          <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "20px", color: "#2d8a4e", lineHeight: 1.1, margin: 0 }}>
             {data?.totalPossuidas ?? 0}
-            <span
-              style={{ fontSize: "11px", color: "#aaa", marginLeft: "1px" }}
-            >
+            <span style={{ fontSize: "11px", color: "#aaa", marginLeft: "1px" }}>
               /{data?.totalFigurinhas ?? 0}
             </span>
           </p>
@@ -323,45 +307,20 @@ export default function AlbumHeader({
             justifyContent: "center",
           }}
         >
-          <p
-            style={{
-              fontSize: "8px",
-              color: "#777",
-              textTransform: "uppercase",
-              letterSpacing: "1px",
-              fontWeight: 800,
-              margin: 0,
-            }}
-          >
+          <p style={{ fontSize: "8px", color: "#777", textTransform: "uppercase", letterSpacing: "1px", fontWeight: 800, margin: 0 }}>
             PACOTES
           </p>
-          <p
-            style={{
-              fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: "20px",
-              color: "#c8920a",
-              lineHeight: 1.1,
-              margin: 0,
-            }}
-          >
+          <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "20px", color: "#c8920a", lineHeight: 1.1, margin: 0 }}>
             {totalPacotes}
           </p>
           {tempoRestante && !temPacotes && (
-            <div
-              style={{
-                fontSize: "7px",
-                fontWeight: "900",
-                color: "#dc2626",
-                whiteSpace: "nowrap",
-                marginTop: "-1px",
-              }}
-            >
+            <div style={{ fontSize: "7px", fontWeight: "900", color: "#dc2626", whiteSpace: "nowrap", marginTop: "-1px" }}>
               {tempoRestante}
             </div>
           )}
         </div>
 
-        {/* 🔥 Seção de Botões Exclusivos (Removido botão "Abrir Tudo") */}
+        {/* Seção de Botões Exclusivos */}
         <div
           style={{
             display: "flex",
@@ -375,9 +334,7 @@ export default function AlbumHeader({
             onClick={lidarComAberturaUnica}
             disabled={!temPacotes || abrindoPacote || abrindoMassa}
             style={{
-              background: temPacotes
-                ? "linear-gradient(135deg, #f5d000, #c8920a)"
-                : "#e0e0e0",
+              background: temPacotes ? "linear-gradient(135deg, #f5d000, #c8920a)" : "#e0e0e0",
               color: temPacotes ? "#1a0a00" : "#999",
               border: "none",
               borderRadius: "8px",
@@ -385,48 +342,38 @@ export default function AlbumHeader({
               fontFamily: "'Bebas Neue', sans-serif",
               fontSize: "15px",
               letterSpacing: "1px",
-              cursor:
-                temPacotes && !abrindoPacote && !abrindoMassa
-                  ? "pointer"
-                  : "not-allowed",
+              cursor: temPacotes && !abrindoPacote && !abrindoMassa ? "pointer" : "not-allowed",
               boxShadow: temPacotes ? "0 3px 0 #a06c00" : "none",
               whiteSpace: "nowrap",
               width: "100%",
             }}
           >
-            {abrindoPacote
-              ? "ABRINDO..."
-              : abrindoMassa
-                ? "PROCESSANDO..."
-                : "ABRIR 1 PACOTE 🔥"}
+            {abrindoPacote ? "ABRINDO..." : abrindoMassa ? "PROCESSANDO..." : "ABRIR 1 PACOTE 🔥"}
           </button>
 
-          {/* 🔥 Botão de Lote Fixo: Apenas 5x com Animação */}
-          {temPacotes &&
-            totalPacotes >= 5 &&
-            !abrindoPacote &&
-            !abrindoMassa && (
-              <button
-                onClick={lidarComAberturaMassaLinkada}
-                style={{
-                  background: "linear-gradient(135deg, #2d8a4e, #1e5fa8)",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "8px",
-                  padding: "8px 16px",
-                  fontFamily: "'Bebas Neue', sans-serif",
-                  fontSize: "14px",
-                  letterSpacing: "1px",
-                  cursor: "pointer",
-                  boxShadow: "0 3px 0 #144d2b",
-                  whiteSpace: "nowrap",
-                  width: "100%",
-                  textTransform: "uppercase",
-                }}
-              >
-                Abrir 5 Pacotes 📦
-              </button>
-            )}
+          {/* Botão de Lote Fixo: Apenas 5x com Animação */}
+          {temPacotes && totalPacotes >= 5 && !abrindoPacote && !abrindoMassa && (
+            <button
+              onClick={lidarComAberturaMassaLinkada}
+              style={{
+                background: "linear-gradient(135deg, #2d8a4e, #1e5fa8)",
+                color: "#fff",
+                border: "none",
+                borderRadius: "8px",
+                padding: "8px 16px",
+                fontFamily: "'Bebas Neue', sans-serif",
+                fontSize: "14px",
+                letterSpacing: "1px",
+                cursor: "pointer",
+                boxShadow: "0 3px 0 #144d2b",
+                whiteSpace: "nowrap",
+                width: "100%",
+                textTransform: "uppercase",
+              }}
+            >
+              Abrir 5 Pacotes 📦
+            </button>
+          )}
         </div>
       </div>
     </header>
